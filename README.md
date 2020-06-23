@@ -1,6 +1,8 @@
 # kommands
 kubernetes common commands without so much typing
 
+![](kommands.svg)
+
 ## install
 
 `git clone https://github.com/javimox/kommands ~/.kube/kommands/`
@@ -41,8 +43,6 @@ kdesc -> kubectl describe
 `kesh`  : it opens a shell in a specific pod/container
 
 ## examples
-
-![](kommands.svg)
 
 #### get pods and their number
 ```
