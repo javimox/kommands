@@ -1,0 +1,213 @@
+## kommands - k8s commands
+## https://github.com/javimox/kommands
+## v0.1 - 2020.06.21
+##
+##  ============================================================================
+##  Copyright (C) 2020 jmox@pm.me
+##
+##  This program is free software: you can redistribute it and/or modify it
+##  under the terms of the GNU General Public License as published by the Free
+##  Software Foundation, either version 3 of the License, or (at your option)
+##  any later version.
+##
+##  This program is distributed in the hope that it will be useful, but WITHOUT
+##  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+##  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+##  more details.
+##
+##  You should have received a copy of the GNU General Public License along with
+##  this program.  If not, see <http://www.gnu.org/licenses/>.
+##  ============================================================================
+##
+
+## ------------------
+## helpers
+## ------------------
+
+# check if string contains only numbers
+_is_nr() {
+    [[ $1 =~ ^[0-9]+$ ]] && return 0 || return 1
+}
+
+# add prefix line number to output
+_add_line_nr() {
+    awk '{printf "%2d %s\n", NR-1, $0}'
+}
+
+# add prefix number to autocomplete words
+_add_autocomplete_nr() {
+    local c=1
+    local total=$#
+    local option=""
+    for (( c=1; c<=$total; c++ )) ; do
+        printf "$c:${!c} "
+    done
+}
+
+# get name from line number
+_convert_k8s_nr2name() {
+    local line_requested=$(( $1 + 1 ))
+    awk "NR==$line_requested" | awk '{print $2}'
+}
+
+# show all pod,pvc,svc or one specificied by name or number
+_k_get() {
+    if [[ -z "$2" ]] ; then
+        kubectl get "${1}" | _add_line_nr
+    else
+        if _is_nr "$2" ; then
+            local run=""
+            local line_requested=$(( $2 + 1 ))
+            case "$1" in
+                po*) run="kgpo";; pvc) run="kgpvc";; svc) run="kgsvc";; *) ;;
+            esac
+            eval "${run}" | sed -n "1p;${line_requested}p"
+        else
+            kubectl get "${1}" "${@:2}" | _add_line_nr
+        fi
+    fi
+}
+
+# delete pod,pvc,svc using its name or its number
+_k_del() {
+    if [[ "$#" -gt "1" ]] ; then
+        if _is_nr "$2" ; then
+            local run=""
+            local line_requested=$(( $2 + 1 ))
+            case "$1" in
+                po*) run="kgpo";; pvc) run="kgpvc";; svc) run="kgsvc";; *) ;;
+            esac
+            resource_name=$(eval "${run}" | _convert_k8s_nr2name $2)
+        else
+            resource_name="$2"
+        fi
+        read -p "do you want to remove ${resource_name} (y/N)? " choice
+        case "$choice" in
+            y|Y ) kubectl delete "${1}" "${resource_name}" ;;
+            *) ;;
+        esac
+    else
+        echo "error delete: Required object number or name not specified."
+    fi
+}
+
+# autocomplete handler
+_k_autocomplete() {
+    local cur=${COMP_WORDS[COMP_CWORD]}
+    local cmd="${1##*/}"
+    local action="get"    # default
+    local resource="pod"  # default
+    local opts=""         # options output
+    local parse=0         # add number to output
+
+    case "${cmd}" in
+        kgpo|kdpo|ksco) resource="pod" ;;
+        kgpvc|kdpvc)    resource="pvc" ;;
+        kgsvc|kdsvc)    resource="svc" ;;
+        kesh)            action="exec" ;;
+        kdesc)       action="describe" ;;
+        *) ;;
+    esac
+
+    case "${action}" in
+        get)
+            opts="$(kubectl ${action} ${resource} -o=jsonpath='{range .items[*].metadata.name}{@}{"\n"}{end}')"
+        ;;
+        exec)
+            case ${COMP_CWORD} in
+                1) opts="$(kubectl get pod -o=jsonpath='{range .items[*].metadata.name}{@}{"\n"}{end}')" ;;
+                2) opts="$(kubectl get pod -o=jsonpath='{.spec.containers[*].name}' ${3})" ;;
+                *) ;;
+            esac
+        ;;
+        describe)
+            case ${COMP_CWORD} in
+                1) opts="$(kubectl api-resources -o name --cached --request-timeout=5s --verbs=get) pvc svc" ; parse=1 ;;
+                2) opts="$(kubectl get -o template '--template={{ range .items  }}{{ .metadata.name }} {{ end }}' ${3})" ;;
+                *) ;;
+            esac
+        ;;
+        *) ;;
+    esac
+
+    # add number to autocompletion output. If enabled, it won't autocomplete using names
+    # [[ "$parse" ]] && opts="$(_add_autocomplete_nr ${opts})"
+
+    COMPREPLY=( $(compgen -W  "${opts}" -- ${cur}) )
+}
+
+## ------------------
+## k commands
+## ------------------
+
+# get pods
+kgpo() {
+    _k_get "pods" "$@"
+}
+
+# get persistentVolumeClaims
+kgpvc() {
+    _k_get "pvc" "$@"
+}
+
+# get services
+kgsvc() {
+    _k_get "svc" "$@"
+}
+
+# delete pod
+kdpo() {
+    _k_del "pod" "$@"
+}
+
+# delete pvc
+kdpvc() {
+    _k_del "pvc" "$@"
+}
+
+# delete service
+kdsvc() {
+    _k_del "svc" "$@"
+}
+
+# describe resource
+kdesc() {
+    local type=""
+    local resource_name=""
+    case "$1" in
+        po*) run="kgpo" ; type="pods";;
+        pvc) run="kgpvc"; type="pvc" ;;
+        svc) run="kgsvc"; type="svc" ;;
+        *)   run="kgpo" ; type="pods";;
+    esac
+    _is_nr "$2" && resource_name=$(eval ${run} | _convert_k8s_nr2name $2) || resource_name="$2"
+    [[ -z "${resource_name}" ]] && kubectl describe "${type}" || kubectl describe "${type}" "${resource_name}"
+}
+
+# show pod's containers
+ksco() {
+    if [[ "$#" -gt "0" ]] ; then
+        local podname=""
+        _is_nr "$1" && podname="$(kgpo | _convert_k8s_nr2name $1)" || podname="$1"
+        local line="$(printf "NAME " ; kubectl get pods "${podname}" -o jsonpath='{.spec.containers[*].name}')"
+        echo "$line" | tr ' ' '\n' | _add_line_nr
+    else
+        echo "error show containers: Required pod number or name not specified."
+    fi
+}
+
+# open a shell
+kesh() {
+    local container=""
+    local podname=""
+    _is_nr "$1" && podname="$(kgpo | _convert_k8s_nr2name $1)" || podname="$1"
+    if [[ "$#" -eq "2" ]] ; then
+        _is_nr "$2" && container="$(ksco "${podname}" | _convert_k8s_nr2name $2)" || container="$2"
+        container=( -c ${container} )
+    fi
+    echo "You are now in pod: ${podname} ${container[@]}"
+    kubectl exec -it "${podname}" "${container[@]}" -- sh
+}
+
+# enable autocomplete
+complete -F _k_autocomplete kgpo kgpvc kgsvc kdpo kdpvc kdsvc kdesc ksco kesh
