@@ -6,10 +6,10 @@ kubernetes common commands without so much typing
 `git clone https://github.com/javimox/kommands ~/.kube/kommands/`
 
 **bash**  
-`echo "source ~/.kube/kommands/.kommands" >> ~/.profile && source ~/.profile`
+`echo "source ~/.kube/kommands/.kommands" >> ~/.bashrc && source ~/.bashrc`
 
 **zsh**  
-`echo "source ~/.kube/kommands/.kommands" >> ~/.zprofile && source ~/.zprofile`
+`echo "source ~/.kube/kommands/.kommands" >> ~/.zshrc && source ~/.zshrc`
 
 ## usage
 
