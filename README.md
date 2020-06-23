@@ -6,10 +6,10 @@ kubernetes common commands without so much typing
 `git clone https://github.com/javimox/kommands ~/.kube/kommands/`
 
 **bash**  
-`echo "source ~/.kube/kommands/.kommands" >> ~/.bashrc && source ~/.bashrc`
+> `echo "source ~/.kube/kommands/.kommands" >> ~/.bashrc && source ~/.bashrc`
 
 **zsh**  
-`echo "source ~/.kube/kommands/.kommands" >> ~/.zshrc && source ~/.zshrc`
+ > `echo "source ~/.kube/kommands/.kommands" >> ~/.zshrc && source ~/.zshrc`
 
 ## usage
 
@@ -44,7 +44,7 @@ kdesc -> kubectl describe
 
 ![](kommands.svg)
 
-### get pods and their number
+#### get pods and their number
 ```
 $ kgpo 
  0 NAME                 READY   STATUS             RESTARTS   AGE
@@ -53,14 +53,14 @@ $ kgpo
  3 pod-two-containers   2/2     Running            0          83m
 ```
 
-### get pod number 3
+#### get pod number 3
 ```
 $ kgpo 3
  0 NAME                 READY   STATUS             RESTARTS   AGE
  3 pod-two-containers   2/2     Running            0          84m
 ```
 
-### show containers of the pod number 3
+#### show containers of the pod number 3
 ```
 $ ksco 3
  0 NAME
@@ -68,7 +68,7 @@ $ ksco 3
  2 i-am-then-the-second-container
 ```
 
-### open a shell in a container of a pod using names
+#### open a shell in a container of a pod using names
 ```
 $ kesh pod-[TAB] [TAB]
 i-am-the-first-container-in-this-pod  i-am-then-the-second-container
@@ -78,7 +78,7 @@ You are now in pod: pod-two-containers -c i-am-then-the-second-container
 / # 
 ```
 
-### open a shell in a container of a pod using numbers
+#### open a shell in a container of a pod using numbers
 pod number 3 , container number 2
 ```
 $ kesh 3 2
@@ -86,7 +86,7 @@ You are now in pod: pod-two-containers -c i-am-then-the-second-container
 / # 
 ```
 
-### get persistent volume claims
+#### get persistent volume claims
 ```
 $ kgpvc
  0 NAME          STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS       AGE
@@ -94,14 +94,14 @@ $ kgpvc
  2 pvc-1         Bound    pvc-4e902e87-0df7-4c3c-827c-a8c7cfd75fa5   1Gi        RWO            do-block-storage   93m
 ```
 
-### delete persistent volume claim using its number
+#### delete persistent volume claim using its number
 ```
 $ kdpvc 2
 do you want to remove pvc-1 (y/N)? y
 persistentvolumeclaim "pvc-1" deleted
 ```
 
-### get services
+#### get services
 ```
 $ kgsvc
  0 NAME                    TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE
@@ -110,7 +110,7 @@ $ kgsvc
  3 test-app                ClusterIP   10.245.109.229   <none>        8080/TCP         113m
  ```
  
-### describe service number 3
+#### describe service number 3
 ```
 $ kdesc svc 3
 Name:              test-app
@@ -130,7 +130,7 @@ Events:            <none>
 
 The source code is licensed under the [GNU General Public License v3.0][GPLv3].
 
-Copyright (C) 2020 jmox@pm.me
+Copyright (C) 2020 jmox(at)pm.me
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
