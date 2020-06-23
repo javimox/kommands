@@ -1,7 +1,7 @@
 # kommands
 kubernetes common commands without so much typing
 
-![](kommands.svg)
+![](kommands.gif)
 
 ## install
 
