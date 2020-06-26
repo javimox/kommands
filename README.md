@@ -31,9 +31,19 @@ kdpvc -> kubectl delete pvc
 kdsvc -> kubectl delete svc
 </pre>
 
+**k**ommands **app**ly:
+<pre>
+kapp  -> kubectl apply -f
+</pre>
+
 **k**ommand **desc**ribe:
 <pre>
 kdesc -> kubectl describe
+</pre>
+
+**k**ommands **log**s:
+<pre>
+klog  -> kubectl logs -f
 </pre>
 
 **k**ommand **s**how **co**ntainers:  
@@ -42,7 +52,7 @@ kdesc -> kubectl describe
 **k**ommand **e**xecute `sh`:  
 `kesh`  : it opens a shell in a specific pod/container
 
-## examples
+## some examples
 
 #### get pods and their number
 ```
@@ -124,6 +134,23 @@ TargetPort:        8080/TCP
 Endpoints:         <none>
 Session Affinity:  None
 Events:            <none>
+```
+
+### apply manifest
+```
+$ kapp pod-1.yaml
+pod/first-pod created
+```
+
+### show logs of the pod using numbers
+pod number 2 , container number 2
+```
+$ klog 2 2 | head -5
+You are now showing logs of: pod-two-containers i-am-then-the-second-container
+Fri Jun 26 23:00:04 UTC 2020
+Fri Jun 26 23:00:05 UTC 2020
+Fri Jun 26 23:00:06 UTC 2020
+Fri Jun 26 23:00:07 UTC 2020
 ```
 
 ## license
