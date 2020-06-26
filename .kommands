@@ -104,7 +104,7 @@ _k_autocomplete() {
         kgpo|kdpo|ksco) resource="pod" ;;
         kgpvc|kdpvc)    resource="pvc" ;;
         kgsvc|kdsvc)    resource="svc" ;;
-        kesh)            action="exec" ;;
+        kesh|klog)       action="exec" ;;
         kdesc)       action="describe" ;;
         *) ;;
     esac
@@ -134,6 +134,27 @@ _k_autocomplete() {
     # [[ "$parse" ]] && opts="$(_add_autocomplete_nr ${opts})"
 
     COMPREPLY=( $(compgen -W  "${opts}" -- ${cur}) )
+    return 0
+}
+
+# autocomplete yaml|yml|json files and outputs directories
+_kapp_autocomplete ()
+{
+    local IFS=$'\n'
+    local last_char=' '
+
+    COMPREPLY=($(compgen -o plusdirs -f -X '!(*.yaml|*.yml|*.json)' \
+        -- "${COMP_WORDS[COMP_CWORD]}"))
+
+    if [ ${#COMPREPLY[@]} = 1 ] ; then
+        [ -d "${COMPREPLY}" ] && last_char=/
+        COMPREPLY=$(printf %q%s "${COMPREPLY}" "${last_char}")
+    else
+        for ((i=0; i < ${#COMPREPLY[@]}; i++)); do
+            [ -d "${COMPREPLY[$i]}" ] && COMPREPLY[$i]=${COMPREPLY[$i]}/
+        done
+    fi
+    return 0
 }
 
 ## ------------------
@@ -168,6 +189,23 @@ kdpvc() {
 # delete service
 kdsvc() {
     _k_del "svc" "$@"
+}
+
+# apply manifest
+kapp() {
+    kubectl apply -f "$@"
+}
+
+# show logs -f of a pod / container
+klog() {
+    local container=""
+    local podname=""
+    _is_nr "$1" && podname="$(kgpo | _convert_k8s_nr2name $1)" || podname="$1"
+    if [[ "$#" -eq "2" ]] ; then
+        _is_nr "$2" && container="$(ksco "${podname}" | _convert_k8s_nr2name $2)" || container="$2"
+    fi
+    echo "You are now showing logs of: ${podname} ${container}"
+    kubectl logs -f "${podname}" "${container}"
 }
 
 # describe resource
@@ -210,4 +248,7 @@ kesh() {
 }
 
 # enable autocomplete
-complete -F _k_autocomplete kgpo kgpvc kgsvc kdpo kdpvc kdsvc kdesc ksco kesh
+complete -F _k_autocomplete kgpo kgpvc kgsvc kdpo kdpvc kdsvc klog kdesc ksco kesh
+
+# enable autocomplete for kapp
+complete -o nospace -F _kapp_autocomplete kapp
