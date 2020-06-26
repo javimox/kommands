@@ -136,13 +136,13 @@ Session Affinity:  None
 Events:            <none>
 ```
 
-### apply manifest
+#### apply manifest
 ```
 $ kapp pod-1.yaml
 pod/first-pod created
 ```
 
-### show logs of the pod using numbers
+#### show logs of the pod using numbers
 pod number 2 , container number 2
 ```
 $ klog 2 2 | head -5
