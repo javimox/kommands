@@ -22,6 +22,7 @@ All the commands below accept as parameter a number or a name. Autocomplete is e
 kgpo  ->  kubectl get pods
 kgpvc ->  kubectl get pvc
 kgsvc ->  kubectl get svc
+kgin  ->  kubectl get ingress
 </pre>
 
 **k**ommands **d**el:
@@ -29,6 +30,7 @@ kgsvc ->  kubectl get svc
 kdpo  -> kubectl delete pod
 kdpvc -> kubectl delete pvc
 kdsvc -> kubectl delete svc
+kdin  -> kubectl delete ingress
 </pre>
 
 **k**ommands **app**ly:
@@ -118,7 +120,7 @@ $ kgsvc
  1 echo-web-svc-nodeport   NodePort    10.245.124.76    <none>        8080:31777/TCP   112m
  2 kubernetes              ClusterIP   10.245.0.1       <none>        443/TCP          2d6h
  3 test-app                ClusterIP   10.245.109.229   <none>        8080/TCP         113m
- ```
+```
  
 #### describe service number 3
 ```
@@ -134,6 +136,30 @@ TargetPort:        8080/TCP
 Endpoints:         <none>
 Session Affinity:  None
 Events:            <none>
+```
+
+#### get ingress
+```
+$ kgin
+ 0 NAME            CLASS    HOSTS            ADDRESS   PORTS   AGE
+ 1 test-api        <none>   api.example.com            80      20m
+ 2 test-frontend   <none>   example.com                80      20m
+```
+
+#### describe ingress number 1
+```
+$ kdesc in 1
+Name:             test-api
+Namespace:        default
+Address:
+Default backend:  default-http-backend:80 (<error: endpoints "default-http-backend" not found>)
+Rules:
+  Host          Path  Backends
+  ----          ----  --------
+  api.example.com
+                /   test-api-service:3000 (10.244.0.234:3000)
+Annotations:    ingress.kubernetes.io/ssl-redirect: true
+Events:         <none>
 ```
 
 #### apply manifest

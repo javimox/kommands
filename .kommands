@@ -1,6 +1,7 @@
 ## kommands - k8s commands
 ## https://github.com/javimox/kommands
 ## v0.1 - 2020.06.21
+## v0.2 - 2021.02.22
 ##
 ##  ============================================================================
 ##  Copyright (C) 2020 jmox@pm.me
@@ -50,7 +51,7 @@ _convert_k8s_nr2name() {
     awk "NR==$line_requested" | awk '{print $2}'
 }
 
-# show all pod,pvc,svc or one specificied by name or number
+# show all pod,pvc,svc,ingress or one specificied by name or number
 _k_get() {
     if [[ -z "$2" ]] ; then
         kubectl get "${1}" | _add_line_nr
@@ -59,7 +60,8 @@ _k_get() {
             local run=""
             local line_requested=$(( $2 + 1 ))
             case "$1" in
-                po*) run="kgpo";; pvc) run="kgpvc";; svc) run="kgsvc";; *) ;;
+                po*) run="kgpo";; pvc) run="kgpvc";;
+                svc) run="kgsvc";; in*) run="kgin";; *) ;;
             esac
             eval "${run}" | sed -n "1p;${line_requested}p"
         else
@@ -68,14 +70,15 @@ _k_get() {
     fi
 }
 
-# delete pod,pvc,svc using its name or its number
+# delete pod,pvc,svc,ingress using its name or its number
 _k_del() {
     if [[ "$#" -gt "1" ]] ; then
         if _is_nr "$2" ; then
             local run=""
             local line_requested=$(( $2 + 1 ))
             case "$1" in
-                po*) run="kgpo";; pvc) run="kgpvc";; svc) run="kgsvc";; *) ;;
+                po*) run="kgpo";; pvc) run="kgpvc";;
+                svc) run="kgsvc";; in*) run="kgin";; *) ;;
             esac
             resource_name=$(eval "${run}" | _convert_k8s_nr2name $2)
         else
@@ -104,6 +107,7 @@ _k_autocomplete() {
         kgpo|kdpo|ksco) resource="pod" ;;
         kgpvc|kdpvc)    resource="pvc" ;;
         kgsvc|kdsvc)    resource="svc" ;;
+        kgin|kdin)  resource="ingress" ;;
         kesh|klog)       action="exec" ;;
         kdesc)       action="describe" ;;
         *) ;;
@@ -176,6 +180,11 @@ kgsvc() {
     _k_get "svc" "$@"
 }
 
+# get ingress
+kgin() {
+    _k_get "ingress" "$@"
+}
+
 # delete pod
 kdpo() {
     _k_del "pod" "$@"
@@ -189,6 +198,11 @@ kdpvc() {
 # delete service
 kdsvc() {
     _k_del "svc" "$@"
+}
+
+# delete service
+kdin() {
+    _k_del "ingress" "$@"
 }
 
 # apply manifest
@@ -216,6 +230,7 @@ kdesc() {
         po*) run="kgpo" ; type="pods";;
         pvc) run="kgpvc"; type="pvc" ;;
         svc) run="kgsvc"; type="svc" ;;
+        in*) run="kgin" ; type="ingress" ;;
         *)   run="kgpo" ; type="pods";;
     esac
     _is_nr "$2" && resource_name=$(eval ${run} | _convert_k8s_nr2name $2) || resource_name="$2"
@@ -248,7 +263,7 @@ kesh() {
 }
 
 # enable autocomplete
-complete -F _k_autocomplete kgpo kgpvc kgsvc kdpo kdpvc kdsvc klog kdesc ksco kesh
+complete -F _k_autocomplete kgpo kgpvc kgsvc kgin kdpo kdpvc kdsvc kdin klog kdesc ksco kesh
 
 # enable autocomplete for kapp
 complete -o nospace -F _kapp_autocomplete kapp
