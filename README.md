@@ -58,6 +58,24 @@ klog  -> kubectl logs -f
 **k**ommand **e**xecute `sh`:  
 `kesh`  : it opens a shell in a specific pod/container
 
+## Alias watch
+
+It is also possible to use [watch](https://man7.org/linux/man-pages/man1/watch.1.html) with **kommands**:
+
+For example, to add a watch alias for **kgpo** (`kubectl get pods` with their number):
+
+**bash**
+> `echo -en "export -f _add_line_nr _k_get kgpo\nalias wkgpo=\"watch -x bash -c kgpo\"" >> ~/.bashrc && source ~/.bashrc`
+
+**zsh**
+ > `echo -en "export -f _add_line_nr _k_get kgpo\nalias wkgpo=\"watch -x bash -c kgpo\"" >> ~/.zshrc && source ~/.zshrc`
+
+After that, the following alias can be used:
+
+<pre>
+wkgpo  -> watch kubectl get pods
+</pre>
+
 ## some examples
 
 #### get pods and their number
