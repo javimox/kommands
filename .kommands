@@ -1,7 +1,8 @@
 ## kommands - k8s commands
 ## https://github.com/javimox/kommands
 ## v0.1 - 2020.06.21
-## v0.2 - 2021.02.22
+## v0.2 - 2021.02.22 - add ingress suport
+## v0.3 - 2021.02.24 - add cm and secret support
 ##
 ##  ============================================================================
 ##  Copyright (C) 2020 jmox@pm.me
@@ -60,8 +61,8 @@ _k_get() {
             local run=""
             local line_requested=$(( $2 + 1 ))
             case "$1" in
-                po*) run="kgpo";; pvc) run="kgpvc";;
-                svc) run="kgsvc";; in*) run="kgin";; *) ;;
+                po*) run="kgpo";; pvc) run="kgpvc";; svc) run="kgsvc";;
+                 cm) run="kgcm";; in*) run="kgin";; se*) run="kgse";; *) ;;
             esac
             eval "${run}" | sed -n "1p;${line_requested}p"
         else
@@ -77,8 +78,8 @@ _k_del() {
             local run=""
             local line_requested=$(( $2 + 1 ))
             case "$1" in
-                po*) run="kgpo";; pvc) run="kgpvc";;
-                svc) run="kgsvc";; in*) run="kgin";; *) ;;
+                po*) run="kgpo";; pvc) run="kgpvc";; svc) run="kgsvc";;
+                 cm) run="kgcm";; in*) run="kgin";; se*) run="kgse";; *) ;;
             esac
             resource_name=$(eval "${run}" | _convert_k8s_nr2name $2)
         else
@@ -107,7 +108,9 @@ _k_autocomplete() {
         kgpo|kdpo|ksco) resource="pod" ;;
         kgpvc|kdpvc)    resource="pvc" ;;
         kgsvc|kdsvc)    resource="svc" ;;
+        kgcm|kdcm)       resource="cm" ;;
         kgin|kdin)  resource="ingress" ;;
+        kgse|kdse)   resource="secret" ;;
         kesh|klog)       action="exec" ;;
         kdesc)       action="describe" ;;
         *) ;;
@@ -180,9 +183,19 @@ kgsvc() {
     _k_get "svc" "$@"
 }
 
+# get configmaps
+kgcm() {
+    _k_get "cm" "$@"
+}
+
 # get ingress
 kgin() {
     _k_get "ingress" "$@"
+}
+
+# get secrets
+kgse() {
+    _k_get "secret" "$@"
 }
 
 # delete pod
@@ -200,9 +213,19 @@ kdsvc() {
     _k_del "svc" "$@"
 }
 
-# delete service
+# delete configmap
+kdcm() {
+    _k_del "cm" "$@"
+}
+
+# delete ingress
 kdin() {
     _k_del "ingress" "$@"
+}
+
+# delete secret
+kdse() {
+    _k_del "secret" "$@"
 }
 
 # apply manifest
@@ -230,7 +253,9 @@ kdesc() {
         po*) run="kgpo" ; type="pods";;
         pvc) run="kgpvc"; type="pvc" ;;
         svc) run="kgsvc"; type="svc" ;;
+        cm)  run="kgcm" ; type="cm"  ;;
         in*) run="kgin" ; type="ingress" ;;
+        se*) run="kgse" ; type="secret"  ;;
         *)   run="kgpo" ; type="pods";;
     esac
     _is_nr "$2" && resource_name=$(eval ${run} | _convert_k8s_nr2name $2) || resource_name="$2"
@@ -263,7 +288,7 @@ kesh() {
 }
 
 # enable autocomplete
-complete -F _k_autocomplete kgpo kgpvc kgsvc kgin kdpo kdpvc kdsvc kdin klog kdesc ksco kesh
+complete -F _k_autocomplete kgpo kgpvc kgsvc kgcm kgin kgse kdpo kdpvc kdsvc kdcm kdin kdse klog kdesc ksco kesh
 
 # enable autocomplete for kapp
 complete -o nospace -F _kapp_autocomplete kapp

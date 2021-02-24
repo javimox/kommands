@@ -22,7 +22,9 @@ All the commands below accept as parameter a number or a name. Autocomplete is e
 kgpo  ->  kubectl get pods
 kgpvc ->  kubectl get pvc
 kgsvc ->  kubectl get svc
+kgcm  ->  kubectl get cm
 kgin  ->  kubectl get ingress
+kgse  ->  kubectl get secret
 </pre>
 
 **k**ommands **d**el:
@@ -30,7 +32,9 @@ kgin  ->  kubectl get ingress
 kdpo  -> kubectl delete pod
 kdpvc -> kubectl delete pvc
 kdsvc -> kubectl delete svc
+kdcm  -> kubectl delete cm
 kdin  -> kubectl delete ingress
+kdse  -> kubectl delete secret
 </pre>
 
 **k**ommands **app**ly:
