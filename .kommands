@@ -116,7 +116,6 @@ _k_del() {
     if [ -z "$rn" ] ; then
         # resource name/nr not specified, param mandatory
         echo "error delete: required object number or name not specified."
-        exit 1
     else
         if _is_nr "$rn" ; then
             local run=""
@@ -248,7 +247,6 @@ _k_esh() {
     if [ -z "${rn_arr[0]}" ] ; then
         # resource name/nr not specified, param mandatory
         echo "error on shell: required object number or name not specified."
-        exit 1
     else
         local podname=""
         local container=""
@@ -413,21 +411,25 @@ kapp() {
     kubectl apply -f "$@"
 }
 
+# show logs
 klog() {
     _sort_args "$@"
     _k_log "pod" "$_k_args" "$_k_ns"
 }
 
+# show containers of a pod
 ksco() {
     _sort_args "$@"
     _k_sco "pod" "$_k_args" "$_k_ns"
 }
 
+# describe resource
 kdesc() {
     _sort_args "$@"
     _k_desc "$_k_args" "$_k_ns"
 }
 
+# open a shell in the pod/container
 kesh() {
     _sort_args "$@"
     _k_esh "$_k_args" "$_k_ns"
