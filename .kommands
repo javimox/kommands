@@ -3,9 +3,10 @@
 ## v0.1 - 2020.06.21
 ## v0.2 - 2021.02.22 - add ingress suport
 ## v0.3 - 2021.02.24 - add cm and secret support
+## v2   - 2023.01.24 - read namespace from parameter
 ##
 ##  ============================================================================
-##  Copyright (C) 2020 jmox@pm.me
+##  Copyright (C) 2023 jmox@pm.me
 ##
 ##  This program is free software: you can redistribute it and/or modify it
 ##  under the terms of the GNU General Public License as published by the Free
@@ -25,6 +26,28 @@
 ## ------------------
 ## helpers
 ## ------------------
+
+_shift() {
+    echo "$@" | sed -e "s/${1}//g" | xargs
+}
+
+_find_namespace() {
+    sed '/\(^\| \)-n */!d; s//\n/; s/^.*\n//; s/ .*//' <<< "$@"
+}
+
+_sort_args() {
+    if [ -z "$_k_ns" ] ; then
+        [[ -z "$_k_args" ]] && declare -g _k_args=""
+        declare -g _k_ns=""
+        _k_ns=$(_find_namespace $@)
+        if [ ! -z "$_k_ns" ] ; then
+            [[ "$@" =~ "-n${_k_ns}" ]] && _k_ns="-n${_k_ns}" || _k_ns="-n ${_k_ns}"
+            _k_args=$(_shift "${_k_ns}" "$@" | xargs)
+        else
+            _k_args="$@"
+        fi
+    fi
+}
 
 # check if string contains only numbers
 _is_nr() {
@@ -52,46 +75,191 @@ _convert_k8s_nr2name() {
     awk "NR==$line_requested" | awk '{print $2}'
 }
 
-# show all pod,pvc,svc,ingress or one specificied by name or number
+## show all pod,pvc,svc,ingress or one specificied by name or number
 _k_get() {
-    if [[ -z "$2" ]] ; then
-        kubectl get "${1}" | _add_line_nr
+    # $1 resource type, $2=_k_args resource number or name , $3=_k_ns namespace
+    local run=""
+    local rt="$1"       # resource type
+    local rn="$2"       # resource name/nr
+    local ns="$3"       # namespace
+
+    # empty global vars
+    _k_args=""
+    _k_ns=""
+
+    if [ -z "$rn" ] ; then
+        # resource name/nr not specified, listing all
+        run='kubectl get "$rt" ${ns//[[:space:]]:+"$ns"} | _add_line_nr'
     else
-        if _is_nr "$2" ; then
+        if _is_nr "$rn" ; then
+            local line_requested=$(( $rn + 1 ))
+            run='kubectl get "$rt" ${ns//[[:space:]]:+"$ns"} | _add_line_nr | sed -n "1p;${line_requested}p"'
+        else
+            run='kubectl get "$rt" ${rn//[[:space:]]:+"$rn"} ${ns//[[:space:]]:+"$ns"} | _add_line_nr'
+        fi
+    fi
+
+    eval "${run}"
+}
+
+# delete pod,pvc,svc,ingress using their name or their number
+_k_del() {
+    # $1 resource type, $2=_k_args resource number or name , $3=_k_ns namespace
+    local rt="$1"       # resource type
+    local rn="$2"       # resource name/nr
+    local ns="$3"       # namespace
+
+    # empty global vars
+    _k_args=""
+    _k_ns=""
+
+    if [ -z "$rn" ] ; then
+        # resource name/nr not specified, param mandatory
+        echo "error delete: required object number or name not specified."
+        exit 1
+    else
+        if _is_nr "$rn" ; then
             local run=""
-            local line_requested=$(( $2 + 1 ))
-            case "$1" in
+            local line_requested=$(( $rn + 1 ))
+            case "$rt" in
                 po*) run="kgpo";; pvc) run="kgpvc";; svc) run="kgsvc";;
                  cm) run="kgcm";; in*) run="kgin";; se*) run="kgse";; *) ;;
             esac
-            eval "${run}" | sed -n "1p;${line_requested}p"
+            run="${run} ${ns//[[:space:]]:+\"$ns\"}"
+            rn=$(eval "${run}" | _convert_k8s_nr2name $rn)
+        fi
+
+        if [ -z "$rn" ] ; then
+            echo "error delete: $rt not found"
         else
-            kubectl get "${1}" "${@:2}" | _add_line_nr
+            read -p "do you want to remove ${rn} (y/N)? " choice
+            case "$choice" in
+                y|Y ) kubectl delete "${rt}" "${rn}" ${ns//[[:space:]]:+"$ns"} ;;
+                *) ;;
+            esac         
         fi
     fi
 }
 
-# delete pod,pvc,svc,ingress using its name or its number
-_k_del() {
-    if [[ "$#" -gt "1" ]] ; then
-        if _is_nr "$2" ; then
-            local run=""
-            local line_requested=$(( $2 + 1 ))
-            case "$1" in
-                po*) run="kgpo";; pvc) run="kgpvc";; svc) run="kgsvc";;
-                 cm) run="kgcm";; in*) run="kgin";; se*) run="kgse";; *) ;;
-            esac
-            resource_name=$(eval "${run}" | _convert_k8s_nr2name $2)
-        else
-            resource_name="$2"
-        fi
-        read -p "do you want to remove ${resource_name} (y/N)? " choice
-        case "$choice" in
-            y|Y ) kubectl delete "${1}" "${resource_name}" ;;
-            *) ;;
-        esac
+# show logs -f of a pod / container
+_k_log() {
+    # $2=_k_args resource number or name , $3=_k_ns namespace
+    local ns="$3"       # namespace
+    local rn_arr=()
+    local pod=""
+    local cont=""
+
+    read -a rn_arr <<< "$2"
+    pod=${rn_arr[0]}
+    cont=${rn_arr[1]}
+
+    # empty global vars
+    _k_args=""
+    _k_ns=""
+
+    if [ -z "$pod" ] ; then
+        # resource name/nr not specified, param mandatory
+        echo "error show log: required object number or name not specified."
     else
-        echo "error delete: Required object number or name not specified."
+        local podname=""
+        local container=""
+        _is_nr "$pod" && podname="$(kgpo ${ns//[[:space:]]:+\"$ns\"} | _convert_k8s_nr2name $pod)" || podname="$pod"
+        if [ ! -z "$cont" ] ; then
+            _is_nr "$cont" && container="$(ksco ${podname} ${ns//[[:space:]]:+\"$ns\"} | _convert_k8s_nr2name $cont)" || container="$cont"
+            container=( -c ${container} )
+        fi
+        [[ -z "$ns" ]] && ns="-n $(kubectl config view --minify -o jsonpath='{..namespace}')"
+        echo "(${ns:=-n default}) Showing logs of: ${podname} ${container[@]}"
+        kubectl logs -f ${podname} "${container[@]}" ${ns//[[:space:]]:+"$ns"}
+    fi
+}
+
+# show pod's containers
+_k_sco() {
+    # $2=_k_args resource number or name , $3=_k_ns namespace
+    local rn="$2"       # resource name/nr
+    local ns="$3"       # namespace
+
+    # empty global vars
+    _k_args=""
+    _k_ns=""
+
+    if [ "$#" -gt "0" ] ; then
+        local podname=""
+        _is_nr "$rn" && podname="$(kgpo ${ns//[[:space:]]:+\"$ns\"} | _convert_k8s_nr2name $rn)" || podname="$rn"
+        local line="$(printf "pod:${podname} " ; kubectl get pods "${podname}" -o jsonpath='{.spec.containers[*].name}' ${ns//[[:space:]]:+\"$ns\"})"
+        echo "$line" | tr ' ' '\n' | _add_line_nr
+    else
+        echo "error show containers: required pod number or name not specified."
+    fi
+}
+
+# describe resource
+_k_desc() {
+    local run=""
+    local ns="$2"       # namespace
+    local r_type=""     # provided by user
+    local r_name=""     # provided by user
+    local type=""       # resource type
+    local resource_name="" # resource name
+
+    read -a rn_arr <<< "$1"
+    r_type=${rn_arr[0]}
+    r_name=${rn_arr[1]}
+
+    # empty global vars
+    _k_args=""
+    _k_ns=""
+
+    case "$r_type" in
+        po*) run="kgpo" ; type="pods";;
+        pvc) run="kgpvc"; type="pvc" ;;
+        svc) run="kgsvc"; type="svc" ;;
+        cm)  run="kgcm" ; type="cm"  ;;
+        in*) run="kgin" ; type="ingress" ;;
+        se*) run="kgse" ; type="secret"  ;;
+        *)   run="kgpo" ; type="pods";;
+    esac
+
+    run="${run} ${ns//[[:space:]]:+\"$ns\"}"
+
+    _is_nr "$r_name" && resource_name=$(eval "${run}" | _convert_k8s_nr2name $r_name) || resource_name="$r_name"
+
+    echo "(${ns:=-n default})"
+    if [ -z "${resource_name}" ] ; then
+        kubectl describe "${type}" ${ns//[[:space:]]:+"$ns"}
+    else
+        kubectl describe "${type}" "${resource_name}" ${ns//[[:space:]]:+"$ns"}
+    fi
+}
+
+# open a shell
+_k_esh() {
+    local ns="$2"       # namespace
+
+    read -a rn_arr <<< "$1"
+    pod=${rn_arr[0]}
+    cont=${rn_arr[1]}
+
+    # empty global vars
+    _k_args=""
+    _k_ns=""
+
+    if [ -z "${rn_arr[0]}" ] ; then
+        # resource name/nr not specified, param mandatory
+        echo "error on shell: required object number or name not specified."
+        exit 1
+    else
+        local podname=""
+        local container=""
+        _is_nr "$pod" && podname="$(kgpo ${ns//[[:space:]]:+\"$ns\"} | _convert_k8s_nr2name $pod)" || podname="$pod"
+        if [ ! -z "$cont" ] ; then
+            _is_nr "$cont" && container="$(ksco ${podname} ${ns//[[:space:]]:+\"$ns\"} | _convert_k8s_nr2name $cont)" || container="$cont"
+            container=( -c ${container} )
+        fi
+        [[ -z "$ns" ]] && ns="-n $(kubectl config view --minify -o jsonpath='{..namespace}')"
+        echo "(${ns:=-n default}) You are now in pod: ${podname} ${container[@]}"
+        kubectl exec -it "${podname}" "${container[@]}" ${ns//[[:space:]]:+"$ns"} -- sh
     fi
 }
 
@@ -170,62 +338,74 @@ _kapp_autocomplete ()
 
 # get pods
 kgpo() {
-    _k_get "pods" "$@"
+    _sort_args "$@"
+    _k_get "pods" "$_k_args" "$_k_ns"
 }
 
 # get persistentVolumeClaims
 kgpvc() {
-    _k_get "pvc" "$@"
+    _sort_args "$@"
+    _k_get "pvc" "$_k_args" "$_k_ns"
 }
 
 # get services
 kgsvc() {
-    _k_get "svc" "$@"
+    _sort_args "$@"
+    _k_get "svc" "$_k_args" "$_k_ns"
 }
 
 # get configmaps
 kgcm() {
-    _k_get "cm" "$@"
+    _sort_args "$@"
+    _k_get "cm" "$_k_args" "$_k_ns"
 }
 
 # get ingress
 kgin() {
-    _k_get "ingress" "$@"
+    _sort_args "$@"
+    _k_get "ingress" "$_k_args" "$_k_ns"
 }
 
 # get secrets
 kgse() {
-    _k_get "secret" "$@"
+    _sort_args "$@"
+    _k_get "secret" "$_k_args" "$_k_ns"
 }
 
 # delete pod
 kdpo() {
-    _k_del "pod" "$@"
+    _sort_args "$@"
+    _k_del "pod" "$_k_args" "$_k_ns"
 }
 
 # delete pvc
 kdpvc() {
-    _k_del "pvc" "$@"
+    _sort_args "$@"
+    _k_del "pvc" "$_k_args" "$_k_ns"
 }
 
 # delete service
 kdsvc() {
-    _k_del "svc" "$@"
+    _sort_args "$@"
+    _k_del "svc" "$_k_args" "$_k_ns"
 }
 
 # delete configmap
 kdcm() {
-    _k_del "cm" "$@"
+    _sort_args "$@"
+    _k_del "cm" "$_k_args" "$_k_ns"
 }
 
 # delete ingress
 kdin() {
-    _k_del "ingress" "$@"
+    _sort_args "$@"
+    _k_del "ingress" "$_k_args" "$_k_ns"
 }
 
 # delete secret
 kdse() {
-    _k_del "secret" "$@"
+    _sort_args "$@"
+    _k_del "secret" "$_k_args" "$_k_ns"
 }
 
 # apply manifest
@@ -233,59 +413,26 @@ kapp() {
     kubectl apply -f "$@"
 }
 
-# show logs -f of a pod / container
 klog() {
-    local container=""
-    local podname=""
-    _is_nr "$1" && podname="$(kgpo | _convert_k8s_nr2name $1)" || podname="$1"
-    if [[ "$#" -eq "2" ]] ; then
-        _is_nr "$2" && container="$(ksco "${podname}" | _convert_k8s_nr2name $2)" || container="$2"
-    fi
-    echo "You are now showing logs of: ${podname} ${container}"
-    kubectl logs -f "${podname}" "${container}"
+    _sort_args "$@"
+    _k_log "pod" "$_k_args" "$_k_ns"
 }
 
-# describe resource
-kdesc() {
-    local type=""
-    local resource_name=""
-    case "$1" in
-        po*) run="kgpo" ; type="pods";;
-        pvc) run="kgpvc"; type="pvc" ;;
-        svc) run="kgsvc"; type="svc" ;;
-        cm)  run="kgcm" ; type="cm"  ;;
-        in*) run="kgin" ; type="ingress" ;;
-        se*) run="kgse" ; type="secret"  ;;
-        *)   run="kgpo" ; type="pods";;
-    esac
-    _is_nr "$2" && resource_name=$(eval ${run} | _convert_k8s_nr2name $2) || resource_name="$2"
-    [[ -z "${resource_name}" ]] && kubectl describe "${type}" || kubectl describe "${type}" "${resource_name}"
-}
-
-# show pod's containers
 ksco() {
-    if [[ "$#" -gt "0" ]] ; then
-        local podname=""
-        _is_nr "$1" && podname="$(kgpo | _convert_k8s_nr2name $1)" || podname="$1"
-        local line="$(printf "NAME " ; kubectl get pods "${podname}" -o jsonpath='{.spec.containers[*].name}')"
-        echo "$line" | tr ' ' '\n' | _add_line_nr
-    else
-        echo "error show containers: Required pod number or name not specified."
-    fi
+    _sort_args "$@"
+    _k_sco "pod" "$_k_args" "$_k_ns"
 }
 
-# open a shell
-kesh() {
-    local container=""
-    local podname=""
-    _is_nr "$1" && podname="$(kgpo | _convert_k8s_nr2name $1)" || podname="$1"
-    if [[ "$#" -eq "2" ]] ; then
-        _is_nr "$2" && container="$(ksco "${podname}" | _convert_k8s_nr2name $2)" || container="$2"
-        container=( -c ${container} )
-    fi
-    echo "You are now in pod: ${podname} ${container[@]}"
-    kubectl exec -it "${podname}" "${container[@]}" -- sh
+kdesc() {
+    _sort_args "$@"
+    _k_desc "$_k_args" "$_k_ns"
 }
+
+kesh() {
+    _sort_args "$@"
+    _k_esh "$_k_args" "$_k_ns"
+}
+
 
 # enable autocomplete
 complete -F _k_autocomplete kgpo kgpvc kgsvc kgcm kgin kgse kdpo kdpvc kdsvc kdcm kdin kdse klog kdesc ksco kesh

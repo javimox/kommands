@@ -10,9 +10,6 @@ kubernetes common commands without so much typing
 **bash**  
 > `echo "source ~/.kube/kommands/.kommands" >> ~/.bashrc && source ~/.bashrc`
 
-**zsh**  
- > `echo "source ~/.kube/kommands/.kommands" >> ~/.zshrc && source ~/.zshrc`
-
 ## usage
 
 All the commands below accept as parameter a number or a name. Autocomplete is enabled for names.
@@ -58,6 +55,14 @@ klog  -> kubectl logs -f
 **k**ommand **e**xecute `sh`:  
 `kesh`  : it opens a shell in a specific pod/container
 
+Using `-n` will run the command on the specified namespace.
+<pre>
+kgpo -ntest         ->  kubectl get pods -n test
+kdesc pod 1 -ntest  ->  kubectl describe first pod in namespace test
+kdesc -ntest 1      ->  kubectl describe first pod in namespace test
+kesh 1 2 -n test    ->  open a shell on second container of the first pod in namespace test
+</pre>
+
 ## Alias watch
 
 It is also possible to use [watch](https://man7.org/linux/man-pages/man1/watch.1.html) with **kommands**:
@@ -67,9 +72,6 @@ For example, to add a watch alias for **kgpo** (`kubectl get pods` with their nu
 **bash**
 > `echo -en "export -f _add_line_nr _k_get kgpo\nalias wkgpo=\"watch -x bash -c kgpo\"" >> ~/.bashrc && source ~/.bashrc`
 
-**zsh**
- > `echo -en "export -f _add_line_nr _k_get kgpo\nalias wkgpo=\"watch -x bash -c kgpo\"" >> ~/.zshrc && source ~/.zshrc`
-
 After that, the following alias can be used:
 
 <pre>
@@ -78,18 +80,18 @@ wkgpo  -> watch kubectl get pods
 
 ## some examples
 
-#### get pods and their number
+#### get pods and their number in namespace `test`
 ```
-$ kgpo 
+$ kgpo -n test
  0 NAME                 READY   STATUS             RESTARTS   AGE
  1 echo-pod-pvc         0/1     Pending            0          103m
  2 first-pod            1/1     Running            0          2d6h
  3 pod-two-containers   2/2     Running            0          83m
 ```
 
-#### get pod number 3
+#### get pod number 3 in namespace `test`
 ```
-$ kgpo 3
+$ kgpo 3 -ntest
  0 NAME                 READY   STATUS             RESTARTS   AGE
  3 pod-two-containers   2/2     Running            0          84m
 ```
@@ -144,11 +146,11 @@ $ kgsvc
  3 test-app                ClusterIP   10.245.109.229   <none>        8080/TCP         113m
 ```
  
-#### describe service number 3
+#### describe service number 3 from namespace test2
 ```
-$ kdesc svc 3
+$ kdesc svc 3 -n test2
 Name:              test-app
-Namespace:         default
+Namespace:         test2
 Labels:            name=test-app
 Annotations:       Selector:  app=echo-app
 Type:              ClusterIP
@@ -205,7 +207,7 @@ Fri Jun 26 23:00:07 UTC 2020
 
 The source code is licensed under the [GNU General Public License v3.0][GPLv3].
 
-Copyright (C) 2020 jmox(at)pm.me
+Copyright (C) 2023 jmox@pm.me
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
